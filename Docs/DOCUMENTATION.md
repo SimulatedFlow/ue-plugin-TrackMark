@@ -511,4 +511,4 @@ is a new batch. Reuse profiles.
 
 ## Support
 
-Silvan Teufel — <teufelsilvan@gmail.com> — <https://silvan.teufel-engineering.com>
+Simulated Flow — <teufelsilvan@gmail.com> — <https://silvan.teufel-engineering.com>
