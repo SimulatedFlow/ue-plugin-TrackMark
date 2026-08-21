@@ -1,0 +1,29 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0.0",
+	"EngineVersion": "5.8.0",
+	"FriendlyName": "TrackMark - Footprints, Tracks & Tyre Marks",
+	"Description": "Ground tracks that cost one draw call. Footprints, paw prints, tyre marks and tank tracks lie on the surface, tilt with its normal, change shape and opacity with the physical material under the foot, and fade out on their own. Every mark of one profile is an instance in a single instanced static mesh - not a decal component per print, which is the one draw call per footprint that makes hand-rolled systems fall over at a few hundred marks. Ageing runs in the material from four per-instance custom data floats, so no CPU loop walks the live marks every frame. A hard budget caps the count: over the cap the oldest mark is recycled into the new one, so after warm-up the runtime allocates nothing at all. Four built-in code profiles (Boot, Paw, Tyre, Track) mean marks appear before you have authored a single asset. TrackMark does not deform terrain, does not play footstep sounds, does not animate characters and does not replicate - marks are local and cosmetic.",
+	"Category": "Gameplay",
+	"CreatedBy": "Silvan Teufel",
+	"CreatedByURL": "https://silvan.teufel-engineering.com",
+	"DocsURL": "https://github.com/SimulatedFlow/ue-plugin-TrackMark",
+	"SupportURL": "mailto:teufelsilvan@gmail.com",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "TrackMark",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"PlatformAllowList": [
+				"Win64",
+				"Mac",
+				"Linux"
+			]
+		}
+	]
+}
