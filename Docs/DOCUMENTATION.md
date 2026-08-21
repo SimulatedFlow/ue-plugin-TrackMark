@@ -1023,9 +1023,9 @@ Instances sit far from their batch component's origin, so the component bounds n
 
 ## 20. Support
 
-**Simulated Flow**
+**Silvan Teufel**
 
-- E-mail: <simulatedflow@gmail.com>
+- E-mail: <teufelsilvan@gmail.com>
 - Documentation and issues: <https://github.com/SimulatedFlow/ue-plugin-TrackMark>
 
 When reporting a problem, the output of `TrackMark.Stats` plus your engine version and platform is

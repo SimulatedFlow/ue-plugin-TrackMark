@@ -127,8 +127,10 @@ Being clear about this up front saves everybody a refund:
 **Number of Blueprints:** demo content only (the plugin itself needs none)
 **Number of C++ Classes:** 7 (profile, settings, subsystem, component, statics library, HUD, anim notify)
 **Network Replicated:** No
-**Supported Development Platforms:** Win64, Mac, Linux
-**Supported Target Build Platforms:** Win64, Mac, Linux
+**Supported Development Platforms:** Win64 (built and verified). Mac and Linux are allow-listed in the
+`.uplugin` but were not built for this release.
+**Supported Target Build Platforms:** Win64 (built and verified). Mac and Linux are allow-listed in the
+`.uplugin` but were not built for this release.
 
 **Built and verified on Win64 with Unreal Engine 5.8. Mac and Linux are allow-listed in the .uplugin but
 have not been built or tested.**
