@@ -1,25 +1,42 @@
 # TrackMark — Documentation
 
-Unreal Engine 5.8 · Runtime module only · Win64 built and verified, Mac/Linux allow-listed but not built
+**Ground tracks that cost one draw call.**
+Footprints, paw prints, tyre marks and tank tracks — pooled, surface-aware, budgeted.
+
+| | |
+|---|---|
+| **Plugin version** | 1.0.0 |
+| **Engine** | Unreal Engine **5.8** (`EngineVersion: "5.8.0"`) |
+| **Modules** | one runtime module, `TrackMark`, `LoadingPhase: PreDefault`. No editor module. |
+| **Platforms** | **Win64 — built and verified.** Mac and Linux are allow-listed in the `.uplugin` but have **not** been built or tested. |
+| **Dependencies** | `Core`, `CoreUObject`, `Engine`, `DeveloperSettings`, `RenderCore`, `PhysicsCore` — engine modules only. No UMG, no Niagara, no AIModule, no other Marketplace plugin. |
+| **Replication** | none. Marks are local and cosmetic by design. |
+| **C++ required** | no. The whole surface is exposed to Blueprint. |
 
 ---
 
 ## Contents
 
 1. [The idea](#1-the-idea)
-2. [Installation and first marks](#2-installation-and-first-marks)
-3. [Triggering marks](#3-triggering-marks)
-4. [Profiles](#4-profiles)
-5. [Surfaces and physical materials](#5-surfaces-and-physical-materials)
-6. [The budget and recycling](#6-the-budget-and-recycling)
-7. [The master material](#7-the-master-material)
-8. [The stats overlay](#8-the-stats-overlay)
-9. [Blueprint reference](#9-blueprint-reference)
-10. [Project settings](#10-project-settings)
-11. [Console commands and variables](#11-console-commands-and-variables)
-12. [Performance notes](#12-performance-notes)
-13. [Limits and known caveats](#13-limits-and-known-caveats)
-14. [Troubleshooting](#14-troubleshooting)
+2. [Supported platforms and engine](#2-supported-platforms-and-engine)
+3. [Installation](#3-installation)
+4. [Quick start](#4-quick-start)
+5. [Class and API overview](#5-class-and-api-overview)
+6. [Code examples](#6-code-examples)
+7. [Triggering marks](#7-triggering-marks)
+8. [Profiles](#8-profiles)
+9. [Surfaces and physical materials](#9-surfaces-and-physical-materials)
+10. [The budget and recycling](#10-the-budget-and-recycling)
+11. [The master material](#11-the-master-material)
+12. [The stats overlay](#12-the-stats-overlay)
+13. [Blueprint reference](#13-blueprint-reference)
+14. [Project settings](#14-project-settings)
+15. [Console commands and variables](#15-console-commands-and-variables)
+16. [Demo content](#16-demo-content)
+17. [Performance notes](#17-performance-notes)
+18. [Limits and known caveats](#18-limits-and-known-caveats)
+19. [Troubleshooting](#19-troubleshooting)
+20. [Support](#20-support)
 
 ---
 
@@ -47,28 +64,444 @@ allocation.
 
 ---
 
-## 2. Installation and first marks
+## 2. Supported platforms and engine
 
-1. Copy the plugin into your project's `Plugins/` folder (or install it from Fab) and enable it.
-2. Open a character Blueprint, **Add Component → Track Mark**.
-3. Play.
+**Engine:** Unreal Engine **5.8**. The plugin targets `5.8.0` in its `.uplugin` and has not been
+back-ported to earlier versions. Nothing in the source is 5.8-exclusive in an obvious way, but no other
+version has been compiled, so no other version is claimed.
 
-You will see boot prints. Nothing else is required: the component falls back to a **code profile** that
-exists in C++, and the mesh falls back to the engine's own `/Engine/BasicShapes/Plane`.
+**Target platforms:**
 
-If you want the prints to appear under the actual feet rather than under the actor's centre, attach the
-component to a foot socket, or add two components and drive them from animation notifies (§3).
+| Platform | Status |
+|---|---|
+| **Win64** | **Built and verified.** Development Editor compiled, demo map run in Standalone PIE at 1920×1032, counters read off the live overlay. |
+| **Mac** | Allow-listed in the `.uplugin`. **Not built, not tested.** |
+| **Linux** | Allow-listed in the `.uplugin`. **Not built, not tested.** |
+| Consoles / mobile / VR | **Not allow-listed.** Not claimed, not supported. |
 
-### What ships in the plugin's content
+The `PlatformAllowList` on the single module reads `["Win64", "Mac", "Linux"]`. There is nothing
+platform-specific in the code — no intrinsics, no platform headers, no `#if PLATFORM_WINDOWS` — so Mac
+and Linux are expected to build cleanly. "Expected" is not "verified", and this table says so on
+purpose.
 
-`Content/TrackMark/` contains the master material `M_TrackMark` and the demo map. If the plugin's
-content is not installed, or the material is missing, the system still runs: batches fall back to the
-mesh's own material and one warning is logged. The geometry and the placement are correct; the marks
-just do not read the custom data and therefore do not fade.
+**Build configurations:** the module is `Runtime` type, so it is present in Development, Debug, Test
+and **Shipping**. The stats overlay draws on `UCanvas` from `AHUD` rather than in UMG or through
+`DrawDebug*`, specifically so it still works in a cooked Shipping build.
+
+**Renderer:** works with Deferred and Forward shading. The mark material is Unlit/Translucent, which is
+the cheapest and most predictable choice on both. Nanite and Lumen are irrelevant to the system — the
+mark mesh is a two-triangle plane.
 
 ---
 
-## 3. Triggering marks
+## 3. Installation
+
+### From Fab
+
+1. Install the plugin to your engine version from the Epic Games Launcher (**Library → Vault → Install
+   to Engine**).
+2. Open your project → **Edit → Plugins**, search for *TrackMark*, tick **Enabled**.
+3. Restart the editor when prompted.
+
+### Into a project
+
+1. Copy the `TrackMark` folder into your project's `Plugins/` directory, so you have
+   `<YourProject>/Plugins/TrackMark/TrackMark.uplugin`.
+2. **C++ projects:** right-click the `.uproject` → **Generate Visual Studio project files**, then build.
+   The plugin compiles as part of your project.
+3. **Blueprint-only projects:** the plugin ships with prebuilt binaries for the engine version it was
+   installed for. If the editor asks to rebuild it and cannot, the project has no C++ toolchain — add
+   any empty C++ class to the project once and the toolchain is set up.
+4. Enable it under **Edit → Plugins** and restart.
+
+### Verifying the install
+
+Open the output log and type into the console:
+
+```
+TrackMark.Stats
+```
+
+If the subsystem is alive you get a block of counters. If you get
+`TrackMark.Stats: no TrackMark subsystem in this world`, the plugin is loaded but the current world does
+not support the subsystem — that happens in a world type outside Game, PIE and Editor.
+
+### Packaging
+
+Nothing to do. The module is `Runtime`, it is included automatically, and the plugin's content
+(`Content/TrackMark/`) is cooked with the rest of your project. If you never reference the demo content,
+exclude the folder from cooking to save the space — the plugin does not need its own demo map to
+function, only the master material `M_TrackMark`.
+
+---
+
+## 4. Quick start
+
+Three steps, no assets, no configuration.
+
+1. **Enable the plugin.**
+2. Open a character Blueprint → **Add Component → Track Mark**.
+3. **Play.**
+
+You will see boot prints behind the character. Nothing else is required: the component falls back to a
+**code profile** that exists in C++, and the mesh falls back to the engine's own
+`/Engine/BasicShapes/Plane`.
+
+### Making it better, in the order that pays off
+
+| Step | What it buys |
+|---|---|
+| Attach the component to a **foot socket** instead of the actor root | Prints under the feet rather than under the actor's centre |
+| Switch **Trigger Mode** to `Manual / Anim Notify` and add the **Track Mark** notify on foot-plant frames | Frame-accurate footfalls instead of a distance guess |
+| Set the **HUD class** on your Game Mode to `ATrackMarkHUD` | The counters and the clickable controls, in-game and in Shipping |
+| Create **TrackMark Profile** data assets and map them to your **physical materials** | Snow, sand and mud that look different |
+| Set the **Mark Budget** in Project Settings | The cap that decides your memory and overdraw ceiling |
+
+### The 60-second demo
+
+```
+TrackMark.Test 2000 900     # scatter 2000 marks in front of the camera
+TrackMark.Stats             # one batch, one draw call, 2000 active
+TrackMark.Budget 256        # the count falls, the draw calls do not, recycled climbs
+TrackMark.Clear             # instant, no hitch, slots stay allocated
+```
+
+That sequence is the whole product argument, and it runs in any level with a floor.
+
+---
+
+## 5. Class and API overview
+
+Seven public classes, plus two structs and four enums. Everything with a `U`/`A` prefix is a `UObject`
+and visible to Blueprint.
+
+| Class | Kind | What it is for |
+|---|---|---|
+| `UTrackMarkComponent` | `USceneComponent` | Hang it on anything that should leave marks. Its own transform is the foot position. |
+| `UTrackMarkProfile` | `UDataAsset` | Look **and** behaviour of one kind of mark. Also the batching key. |
+| `UTrackMarkSubsystem` | `UTickableWorldSubsystem` | Owns the instance pools, the budget, the ageing and the numbers. One per world. |
+| `UTrackMarkStatics` | `UBlueprintFunctionLibrary` | The complete Blueprint surface. Every function resolves the subsystem itself. |
+| `UTrackMarkSettings` | `UDeveloperSettings` | Project-wide defaults, plus runtime setters that never touch the `.ini`. |
+| `ATrackMarkHUD` | `AHUD` | Canvas stats overlay and clickable control panel. Works in Shipping. |
+| `UAnimNotify_TrackMark` | `UAnimNotify` | Drops a mark at the exact animation frame the foot lands. |
+
+### Types
+
+| Type | Purpose |
+|---|---|
+| `FTrackMarkRequest` (struct) | Everything one placement needs: location, forward, profile, side, trace settings, opacity/size/lifetime scales. Defaults alone already produce a sensible boot print. |
+| `FTrackMarkStats` (struct) | Fourteen measured counters. Read it from Blueprint or draw it with `ATrackMarkHUD`. |
+| `ETrackMarkBuiltInProfile` | `Boot`, `Paw`, `Tyre`, `Track` — the four code profiles. |
+| `ETrackMarkSide` | `Left`, `Right`, `Center`. Drives lateral offset and mirroring. |
+| `ETrackMarkTriggerMode` | `Manual` (no tick at all) or `Distance`. |
+| `ETrackMarkResult` | `Placed`, `Disabled`, `NoGround`, `TooSteep`, `NoProfile`, `NoMesh`, `NoSlot`. Nothing fails silently. |
+
+### The hot path, end to end
+
+```
+UTrackMarkComponent::LeaveTrack()          // or the anim notify, or a Blueprint call
+  → BuildRequest()                          // fills FTrackMarkRequest from the component
+  → UTrackMarkSubsystem::PlaceMark()
+      → line trace down (bReturnPhysicalMaterial = true)   ← the only notable cost
+      → resolve profile: override → surface → request → default
+      → slope check against Profile->MaxSlopeAngle
+      → FindOrCreateBatch(Profile)          // one batch = one ISM = one draw call
+      → AcquireSlot()                       // recycle the oldest if at budget
+      → UpdateInstanceTransform() + SetCustomData()   // both with bMarkRenderStateDirty = false
+  → returns ETrackMarkResult
+```
+
+The subsystem's own tick does exactly two things: retire marks whose lifetime has run out (capped at
+`MaxRetirementsPerTick`), and publish the stats. Both are bounded.
+
+### Key functions at a glance
+
+**`UTrackMarkStatics`** — placement: `LeaveTrackMark`, `LeaveTrackMarkForActor`,
+`LeaveTrackMarkFromRequest`, `ClearAllTrackMarks`, `SpawnTestTrackMarks`. Budget and state:
+`SetTrackMarkBudget`, `GetTrackMarkBudget`, `SetTrackMarksEnabled`, `AreTrackMarksEnabled`,
+`GetTrackMarkStats`. Profiles: `GetBuiltInTrackMarkProfile`, `GetDefaultTrackMarkProfile`,
+`SetDefaultTrackMarkProfile`, `SetTrackMarkProfileForSurface`, `SetTrackMarkProfileOverride`,
+`GetTrackMarkProfileOverride`, `GetBuiltInTrackMarkProfileName`. Utility: `GetTrackMarkSubsystem`.
+
+**`UTrackMarkComponent`** — `LeaveTrack`, `LeaveTrackAt`, `LeaveTrackAlternating`, `SetTriggerMode`,
+`ResetStride`, `GetEffectiveProfile`, and the `OnTrackMarkPlaced` multicast delegate.
+
+**`UTrackMarkSubsystem`** — `Get`, `PlaceMark` / `PlaceTrackMark`, `ClearAllMarks`, `SetMarkBudget`,
+`GetMarkBudget`, `GetBuiltInProfile`, `GetDefaultProfile`, `SetDefaultProfile`, `SetProfileForSurface`,
+`GetProfileForSurface`, `SetProfileOverride`, `GetProfileOverride`, `SetMarksEnabled`, `AreMarksEnabled`,
+`GetStats`, `LogStats`, `SpawnTestMarks`.
+
+**`ATrackMarkHUD`** — `AddButton`, `SetButtonLabel`, `RemoveButton`, `ClearButtons`, the
+`OnButtonClicked` delegate, and the four built-in button ids `ButtonId_Profile`, `ButtonId_Budget`,
+`ButtonId_Stats`, `ButtonId_Clear`.
+
+---
+
+## 6. Code examples
+
+All examples are C++. Every one of them has a one-to-one Blueprint equivalent — see §13.
+
+### Module dependency
+
+Add the module to your `Build.cs` before including anything:
+
+```csharp
+PublicDependencyModuleNames.AddRange(new string[] { "TrackMark" });
+```
+
+### 6.1 A character that leaves footprints
+
+```cpp
+// MyCharacter.h
+#include "GameFramework/Character.h"
+#include "MyCharacter.generated.h"
+
+class UTrackMarkComponent;
+
+UCLASS()
+class AMyCharacter : public ACharacter
+{
+    GENERATED_BODY()
+
+public:
+    AMyCharacter();
+
+private:
+    UPROPERTY(VisibleAnywhere, Category = "TrackMark")
+    TObjectPtr<UTrackMarkComponent> TrackMarks;
+};
+```
+
+```cpp
+// MyCharacter.cpp
+#include "MyCharacter.h"
+#include "TrackMarkComponent.h"
+
+AMyCharacter::AMyCharacter()
+{
+    TrackMarks = CreateDefaultSubobject<UTrackMarkComponent>(TEXT("TrackMarks"));
+    TrackMarks->SetupAttachment(GetRootComponent());
+
+    // Distance triggering needs no animation work at all.
+    TrackMarks->TriggerMode      = ETrackMarkTriggerMode::Distance;
+    TrackMarks->BuiltInProfile   = ETrackMarkBuiltInProfile::Boot;
+    TrackMarks->bAlternateFeet   = true;
+    TrackMarks->MinSpeed         = 40.0f;   // do not stamp while shuffling in place
+}
+```
+
+That is a complete, working footprint setup. Everything below is refinement.
+
+### 6.2 Frame-accurate footfalls from an animation notify
+
+Attach one component per foot and let the notify pick the right one by name:
+
+```cpp
+LeftFootMarks  = CreateDefaultSubobject<UTrackMarkComponent>(TEXT("LeftFootMarks"));
+LeftFootMarks->SetupAttachment(GetMesh(), TEXT("foot_l"));
+LeftFootMarks->TriggerMode = ETrackMarkTriggerMode::Manual;   // no tick at all
+
+RightFootMarks = CreateDefaultSubobject<UTrackMarkComponent>(TEXT("RightFootMarks"));
+RightFootMarks->SetupAttachment(GetMesh(), TEXT("foot_r"));
+RightFootMarks->TriggerMode = ETrackMarkTriggerMode::Manual;
+```
+
+Then in the animation editor, add the **Track Mark** notify on each foot-plant frame and set
+`ComponentName` to `LeftFootMarks` / `RightFootMarks`. In `Manual` mode the component's tick function is
+switched off entirely, so a thousand idle components cost nothing.
+
+If you would rather drive it from your own notify or from a Blueprint anim graph:
+
+```cpp
+void AMyCharacter::OnFootPlant(bool bLeftFoot)
+{
+    UTrackMarkComponent* Foot = bLeftFoot ? LeftFootMarks : RightFootMarks;
+    const ETrackMarkResult Result = Foot->LeaveTrack(
+        bLeftFoot ? ETrackMarkSide::Left : ETrackMarkSide::Right);
+
+    if (Result == ETrackMarkResult::NoGround)
+    {
+        // Airborne, or the trace channel does not hit this floor. Not an error.
+    }
+}
+```
+
+### 6.3 A one-off mark from anywhere
+
+```cpp
+#include "TrackMarkStatics.h"
+
+// Under an actor, facing the way it moves; the actor is excluded from the trace.
+UTrackMarkStatics::LeaveTrackMarkForActor(SomeActor);
+
+// At an explicit location and direction.
+UTrackMarkStatics::LeaveTrackMark(
+    this,                       // any world context object
+    ImpactLocation,
+    ImpactDirection,
+    /*Profile=*/ nullptr,       // null: resolve from the surface, then the default
+    ETrackMarkSide::Center,
+    /*IgnoreActor=*/ this);
+```
+
+### 6.4 Full control through the request struct
+
+A heavy landing: bigger, darker, longer-lived than a walk step, and no lateral offset.
+
+```cpp
+#include "TrackMarkStatics.h"
+#include "TrackMarkTypes.h"
+
+FTrackMarkRequest Request;
+Request.Location          = GetActorLocation();
+Request.Forward           = GetActorForwardVector();
+Request.Side              = ETrackMarkSide::Center;
+Request.IgnoreActor       = this;
+Request.OpacityScale      = 1.6f;    // stamps harder
+Request.SizeScale         = 1.3f;    // and wider
+Request.LifetimeScale     = 2.0f;    // and stays twice as long
+Request.TraceDownDistance = 300.0f;  // component is mounted at the hip
+
+const ETrackMarkResult Result =
+    UTrackMarkStatics::LeaveTrackMarkFromRequest(this, Request);
+
+switch (Result)
+{
+case ETrackMarkResult::Placed:    break;
+case ETrackMarkResult::TooSteep:  /* landed on a wall; refuse rather than plaster it */ break;
+case ETrackMarkResult::NoGround:  /* nothing under the feet within 300 cm */ break;
+default:                          break;
+}
+```
+
+If you already know the ground — a flat arena, a fixed floor height — set
+`Request.bTraceForSurface = false` and placement collapses to two writes with no trace at all.
+
+### 6.5 Surface-driven profiles
+
+Map physical materials to profiles once, at startup, and every placement afterwards picks the right one
+by itself:
+
+```cpp
+#include "TrackMarkStatics.h"
+
+void AMyGameMode::BeginPlay()
+{
+    Super::BeginPlay();
+
+    UTrackMarkStatics::SetTrackMarkProfileForSurface(this, PM_Snow, DA_Profile_SnowBoot);
+    UTrackMarkStatics::SetTrackMarkProfileForSurface(this, PM_Mud,  DA_Profile_MudBoot);
+    // Anything not listed falls through to the default profile. That is not an error.
+}
+```
+
+The same mapping can be authored project-wide, without code, under
+**Project Settings → Plugins → TrackMark → Surface Profiles**.
+
+### 6.6 Budget, quality settings and clearing
+
+```cpp
+#include "TrackMarkStatics.h"
+
+// A graphics-options slider, in one line each.
+void AMyOptionsMenu::ApplyTrackDetail(int32 Level)
+{
+    const int32 Budget = (Level == 0) ? 0 : (Level == 1 ? 256 : (Level == 2 ? 1024 : 4096));
+
+    if (Budget == 0)
+    {
+        UTrackMarkStatics::SetTrackMarksEnabled(this, false);
+        UTrackMarkStatics::ClearAllTrackMarks(this);
+        return;
+    }
+
+    UTrackMarkStatics::SetTrackMarksEnabled(this, true);
+    UTrackMarkStatics::SetTrackMarkBudget(this, Budget);
+}
+```
+
+Lowering the budget retires the oldest marks immediately. The live count falls, the **draw call count
+does not move**, and no instance slot is freed — so raising it again reuses the same slots.
+
+### 6.7 Reading the numbers
+
+```cpp
+#include "TrackMarkStatics.h"
+#include "TrackMarkTypes.h"
+
+const FTrackMarkStats Stats = UTrackMarkStatics::GetTrackMarkStats(this);
+
+UE_LOG(LogTemp, Display,
+    TEXT("%d/%d marks in %d draw calls | %d slots (%d free) | recycled %d, allocated %d | %.2f ms"),
+    Stats.ActiveMarks, Stats.Budget,
+    Stats.ActiveBatches,
+    Stats.InstanceSlots, Stats.FreeSlots,
+    Stats.RecycledSlots, Stats.AllocatedSlots,
+    Stats.TickMilliseconds + Stats.PlacementMilliseconds);
+```
+
+`AllocatedSlots` going flat while `RecycledSlots` keeps climbing is the proof that the system has warmed
+up and stopped allocating.
+
+### 6.8 Reacting to a placement
+
+```cpp
+// In BeginPlay:
+TrackMarks->OnTrackMarkPlaced.AddDynamic(this, &AMyCharacter::HandleTrackMarkPlaced);
+
+void AMyCharacter::HandleTrackMarkPlaced(FVector Location, ETrackMarkSide Side)
+{
+    // Cosmetic hook. Spawn a dust puff, play a sound, notify an AI tracker.
+    // Fires only on a successful placement, and only locally.
+}
+```
+
+### 6.9 Your own buttons on the overlay
+
+```cpp
+// In a subclass of ATrackMarkHUD, or on a Blueprint child of it:
+void AMyHUD::BeginPlay()
+{
+    Super::BeginPlay();
+
+    AddButton(TEXT("Demo.AddWalkers"), TEXT("+10 WALKERS"), FLinearColor(0.4f, 0.85f, 0.4f, 1.0f));
+    AddButton(TEXT("Demo.Surface"),    TEXT("SURFACE: GRASS"));
+
+    OnButtonClicked.AddDynamic(this, &AMyHUD::HandleButton);
+}
+
+void AMyHUD::HandleButton(FName ButtonId)
+{
+    if (ButtonId == TEXT("Demo.AddWalkers"))
+    {
+        SpawnWalkers(10);
+    }
+    // The four built-in buttons fire this same delegate, so one handler can drive the lot.
+}
+```
+
+### 6.10 Direct subsystem access
+
+When you want to hold a reference instead of passing a world context around:
+
+```cpp
+#include "TrackMarkSubsystem.h"
+
+if (UTrackMarkSubsystem* Subsystem = UTrackMarkSubsystem::Get(this))
+{
+    Subsystem->SetProfileOverride(Subsystem->GetBuiltInProfile(ETrackMarkBuiltInProfile::Tyre));
+    Subsystem->SetMarkBudget(4096);
+    Subsystem->LogStats();
+}
+```
+
+`UTrackMarkSubsystem::Get` returns null outside a world that supports the subsystem, and every
+`UTrackMarkStatics` function fails quietly in the same situation — calling them from a menu level does
+nothing rather than crashing.
+
+---
+
+## 7. Triggering marks
 
 Three triggers, and they combine freely.
 
@@ -107,7 +540,7 @@ Every trigger returns an `ETrackMarkResult`, so a caller can tell "placed" from 
 
 ---
 
-## 4. Profiles
+## 8. Profiles
 
 A `UTrackMarkProfile` holds the look **and** the behaviour of one kind of mark, and it is also the
 **batching key**: one profile in use is one instanced component is one draw call. Two profiles that
@@ -136,6 +569,14 @@ These exist in C++ and need no asset. `UTrackMarkSubsystem::GetBuiltInProfile` c
 Tyre and Track use a short stride on purpose: a wheel lays down a continuous band, so consecutive marks
 are meant to overlap into a line rather than read as separate stamps.
 
+> **Shape caveat.** The four **code** profiles set no `ScalarParameters`, so they do not send the
+> master material a `ShapeType`, and `M_TrackMark` draws its default — the **boot** shape — for all
+> four. Their *sizes, lifetimes, opacities, strides and spacings* are correct and distinct; only the
+> silhouette is shared. The four shipped profile **assets**
+> (`DA_TrackMarkProfile_Boot / Paw / Tyre / Track`) do send `ShapeType`, so they render the right shape.
+> Use the assets when the silhouette matters; use the code profiles when you want marks with zero setup.
+> See §18.
+
 ### Making your own
 
 Content Browser → **Miscellaneous → Data Asset → TrackMark Profile**.
@@ -144,24 +585,25 @@ Notable fields beyond the table above:
 
 - `Mesh` — must be flat in XY, facing +Z, pivot centred. Placement scales X along the direction of
   travel and Y across it.
-- `Material` — your own master material. It only has to read the four custom data floats (§7).
+- `Material` — your own master material. It only has to read the four custom data floats (§11).
 - `SurfaceOffset` — lift above the traced surface point, in centimetres. The first defence against
   Z-fighting.
 - `LocalOffset` — extra offset in the mark's own space, X forward / Y right / Z up.
 - `bAlignToSurfaceNormal` — off keeps the mark horizontal, which reads badly on ramps.
 - `NumVariants` — how many shapes the material may draw, fed to it through the custom data.
 - `ScalarParameters` / `VectorParameters` — anything else your material wants. Pushed onto the batch's
-  material instance when the batch is created; names the material does not know are ignored.
+  material instance when the batch is created; names the material does not know are ignored. This is
+  where `ShapeType` is set for the shipped profile assets.
 
 ---
 
-## 5. Surfaces and physical materials
+## 9. Surfaces and physical materials
 
 The placement trace runs with `bReturnPhysicalMaterial = true`. The `UPhysicalMaterial` on the hit is
 looked up in a map and picks the profile.
 
 - **Project-wide:** *Project Settings → Plugins → TrackMark → Surface Profiles*.
-- **At runtime, per world:** `UTrackMarkStatics::SetTrackMarkProfileForSurface`.
+- **At runtime, per world:** `UTrackMarkStatics::SetTrackMarkProfileForSurface` (§6.5).
 
 A surface that is not in the map, or a hit with no physical material at all, falls through to the
 default profile. That is **not** an error and is not logged — a level full of untagged geometry still
@@ -183,7 +625,7 @@ its up axis is the surface normal — a footprint on a ramp lies **on** the ramp
 
 ---
 
-## 6. The budget and recycling
+## 10. The budget and recycling
 
 `MarkBudget` is a hard cap on live marks per world. It does not stop new marks; it decides what happens
 to the old ones.
@@ -215,7 +657,7 @@ the *live* count never does. This is why the overlay shows both numbers.
 
 ---
 
-## 7. The master material
+## 11. The master material
 
 `M_TrackMark` is drawn **procedurally**. There is no painted texture anywhere in this plugin.
 
@@ -281,6 +723,12 @@ Ellipse(P, Centre, Radii) = 1 - smoothstep(0.85, 1.0, length((P - Centre) / Radi
 Variants come from `abs(CustomData3) - 1`: variant 1 rotates `P` by a few degrees and scales the heel
 ellipse down slightly. That is enough to stop a straight walk looking stamped, and it costs two nodes.
 
+**Selecting the shape.** In the shipped `M_TrackMark` the four shapes live in a single **Custom** HLSL
+node and are selected by a `ShapeType` scalar parameter — `0` boot, `1` paw, `2` tyre, `3` track. A
+profile sends it through `ScalarParameters`, which the subsystem pushes onto the batch's material
+instance when the batch is created. A profile that sends nothing gets the default, which is the boot
+shape.
+
 ### Material settings
 
 - **Material Domain:** Surface
@@ -297,7 +745,7 @@ and drive Base Color from the tint — the custom data contract does not change.
 
 ---
 
-## 8. The stats overlay
+## 12. The stats overlay
 
 `ATrackMarkHUD` is an `AHUD` subclass that draws on `UCanvas`. Canvas rather than UMG on purpose: it
 draws in a cooked **Shipping** build, where `DrawDebug` is compiled out and a debug widget is usually
@@ -336,12 +784,16 @@ cannot claim one thing while the system does another — the very first click al
 says. The `PROFILE` button steps from what the subsystem is actually doing rather than from a counter of
 its own, so it stays in step even when something else changes the override.
 
-Add your own with `AddButton(Id, Label, Accent)` and `SetButtonLabel(Id, Label)`. Built-in and custom
-buttons fire the same `OnButtonClicked` delegate, so one Blueprint handler can drive the lot.
+Add your own with `AddButton(Id, Label, Accent)` and `SetButtonLabel(Id, Label)` (§6.9). Built-in and
+custom buttons fire the same `OnButtonClicked` delegate, so one Blueprint handler can drive the lot.
+
+Layout is configurable: `StatsBoxOrigin`, `ButtonPanelRightMargin`, `ButtonPanelTop`, `ButtonWidth`,
+`ButtonHeight`, `ButtonSpacing`, and the `BudgetToggleLow` / `BudgetToggleHigh` pair the BUDGET button
+switches between.
 
 ---
 
-## 9. Blueprint reference
+## 13. Blueprint reference
 
 Everything below is on `UTrackMarkStatics` unless noted. Nothing in this plugin needs a line of C++.
 
@@ -374,6 +826,10 @@ Override`, `Get Built In Track Mark Profile Name`.
 `Leave Track`, `Leave Track At`, `Leave Track Alternating`, `Set Trigger Mode`, `Reset Stride`,
 `Get Effective Profile`, and the `On Track Mark Placed` event.
 
+### On the HUD
+
+`Add Button`, `Set Button Label`, `Remove Button`, `Clear Buttons`, and the `On Button Clicked` event.
+
 ### On the settings
 
 `Set Track Marks Enabled`, `Set Default Mark Budget`, `Set Max Retirements Per Tick`,
@@ -382,7 +838,7 @@ Override`, `Get Built In Track Mark Profile Name`.
 
 ---
 
-## 10. Project settings
+## 14. Project settings
 
 *Project Settings → Plugins → TrackMark*, stored in `DefaultGame.ini`.
 
@@ -401,11 +857,11 @@ Override`, `Get Built In Track Mark Profile Name`.
 | `Max Retirements Per Tick` | 256 | Keeps one frame bounded after a long pause |
 | `Batch Bounds Scale` | 2.0 | Culling headroom; instances sit far from the batch origin |
 | `Instance Start / End Cull Distance` | 0 | 0 disables distance culling |
-| `Tick In Editor Worlds` | on | See §13 |
+| `Tick In Editor Worlds` | on | See §18 |
 
 ---
 
-## 11. Console commands and variables
+## 15. Console commands and variables
 
 ```
 TrackMark.Test [Count] [Radius]   scatter marks in a disc in front of the local viewpoint
@@ -418,9 +874,33 @@ TrackMark.Enabled 0|1             console variable; refuses new marks, existing 
 `TrackMark.Test` reports how many marks actually landed. A mark over a hole or a wall is refused, not
 faked — if 500 were requested and 480 placed, 20 found no ground or too steep a slope.
 
+Defaults: `TrackMark.Test` uses 500 marks and a 900 cm radius when called with no arguments.
+
 ---
 
-## 12. Performance notes
+## 16. Demo content
+
+The plugin ships a demo under `Content/TrackMark/` (mount path `/TrackMark/TrackMark/`). It is
+self-contained and can be excluded from your cook if you do not want it.
+
+| Path | What it is |
+|---|---|
+| `Maps/L_TrackMarkDemo` | An 80 × 80 m sand field with snow and mud patches, each carrying its own physical material |
+| `Blueprints/BP_TrackMarkWalker` | Walks a circle laying marks. Four instances run at once, so the demo moves by itself |
+| `Blueprints/BP_TrackMarkDemoHUD` | A Blueprint child of `ATrackMarkHUD` with three custom buttons on top of the four built-in ones |
+| `Blueprints/BP_TrackMarkDemoViewer` | Camera pawn with a `CycleView` action |
+| `Blueprints/BP_TrackMarkDemoGameMode` | Wires the HUD and the viewer together |
+| `Materials/M_TrackMark` | **The master material.** This is the one asset the plugin itself depends on |
+| `Materials/M_TrackMarkDemoGround` + `MI_…Sand/Snow/Mud` | Ground materials for the three surfaces |
+| `Materials/M_TrackMarkDemoMarker` + four colour instances | Marker meshes that label the demo areas |
+| `Profiles/DA_TrackMarkProfile_*` | Boot, Paw, Tyre, Track, SnowBoot, MudBoot — the asset profiles, which do carry `ShapeType` |
+| `Physics/PM_TrackMarkSand / Snow / Mud` | The physical materials the surface mapping keys off |
+
+Open the map, press Play, and the walkers start laying trails immediately. The overlay is on by default.
+
+---
+
+## 17. Performance notes
 
 **Per mark, once:** one line trace, one `UpdateInstanceTransform`, one `SetCustomData`. Both writes pass
 `bMarkRenderStateDirty = false`; the instance data manager tracks the change and streams it to the GPU
@@ -440,16 +920,35 @@ Navigation in particular matters: thousands of navigation-relevant instances wou
 why it is counted separately in the overlay. If you already know the ground — a flat arena, a fixed
 floor height — set `bTraceForSurface = false` on the request and placement becomes two writes.
 
+**Memory.** One live mark is a `{ int32, int32, float }` entry in the ring plus one instance in a batch.
+A 2048-mark budget is a ring of about 24 KB plus the instance buffers, which the engine sizes for you.
+Doubling the budget doubles both, linearly and predictably.
+
 ---
 
-## 13. Limits and known caveats
+## 18. Limits and known caveats
+
+**Built-in code profiles all draw the boot shape.** The four profiles created in C++ set no
+`ScalarParameters`, so they never send `M_TrackMark` a `ShapeType` and the material falls back to its
+default silhouette. Their sizes, lifetimes, opacities, strides, spacings and mirroring are all distinct
+and correct — a Tyre code profile is 40 × 22 cm with a 22 cm stride and a 45 s life, which reads as a
+tyre band — but the outline is a boot. The shipped **profile assets** send `ShapeType` and render the
+right shape. If you want the code profiles to be shape-correct too, add
+`ScalarParameters.Add(TEXT("ShapeType"), N)` per type in `UTrackMarkProfile::CreateBuiltIn`, or simply
+point your components at the `DA_TrackMarkProfile_*` assets.
+
+**HUD buttons and injected input.** The overlay's buttons are `AHUD` hit boxes. They respond to real
+mouse clicks from a person. They do **not** respond to synthetic clicks injected at the OS level
+(`SendInput` / `mouse_event`) — those reach the Slate layer of the window but not the Canvas hit-box
+test. This is an engine behaviour, not a plugin bug, and it only matters for automated capture scripts.
+Drive state changes through `UTrackMarkStatics` or the console when scripting.
 
 **The decay clock.** The material derives a mark's age from the scene's `Time` input and the spawn time
 written into custom data 0, which comes from `UWorld::GetTimeSeconds()`. These agree in Game and PIE.
 The subsystem can also run in a plain **editor world** (`Tick In Editor Worlds`, on by default), where
-the two clocks are the editor world's rather than a game world's; this path has not been measured and
-should be treated as untested. If marks placed from an editor tool age oddly, switch the setting off and
-place them in PIE.
+the two clocks are the editor world's rather than a game world's; **this path has not been measured and
+should be treated as untested.** If marks placed from an editor tool age oddly, switch the setting off
+and place them in PIE.
 
 **Draw calls grow with profiles in use.** One profile is one batch is one draw call. Cycling through
 four profiles leaves four batches in existence, and each keeps the instance slots it once needed. Both
@@ -469,9 +968,13 @@ a plane with an off-centre pivot, will place and scale wrongly.
 **Physics-driven surfaces.** The trace uses one collision channel. A surface that does not block that
 channel is invisible to the system and returns `NoGround`.
 
+**No terrain deformation, no audio, no gameplay.** TrackMark draws marks. It does not displace the
+ground, does not play footstep sounds, does not animate anything, and implements no trail-reading
+gameplay. See the README for the full "does not do" list.
+
 ---
 
-## 14. Troubleshooting
+## 19. Troubleshooting
 
 **No marks at all.**
 Check the overlay or `TrackMark.Stats`. If `Traces this frame` is 0, nothing is calling placement — the
@@ -488,6 +991,10 @@ your own material that reads the custom data.
 Either the material is not reading custom data 0 and 1, or the profile's `Lifetime` is 0, which means
 "never ages out" on purpose. Such marks still get recycled once the budget comes round to them.
 
+**Every profile looks like a boot.**
+You are using the built-in code profiles. Point the component at a `DA_TrackMarkProfile_*` asset
+instead, or see §18.
+
 **Marks float above or sink into the ground.**
 Adjust the profile's `SurfaceOffset`. Too small gives Z-fighting, too large gives a visible gap on
 slopes. 1 cm is the default and is right for most scales.
@@ -501,14 +1008,25 @@ foot-mounted component will apply the spacing on top of the socket's own offset.
 **The HUD buttons do nothing.**
 Hit boxes need click events on the player controller. Leave `bAutoEnableMouseInput` on, or set
 `bShowMouseCursor` and `bEnableClickEvents` yourself. If your game sets an input mode of
-*Game Only* after BeginPlay, it will take the cursor back.
+*Game Only* after BeginPlay, it will take the cursor back. If you are clicking with a script rather than
+a hand, see §18.
 
 **Draw calls keep climbing.**
 Each distinct profile in use is a batch. If something is creating profile assets at runtime, every one
 is a new batch. Reuse profiles.
 
+**Marks pop out at the screen edge.**
+Instances sit far from their batch component's origin, so the component bounds need slack. Raise
+*Batch Bounds Scale*.
+
 ---
 
-## Support
+## 20. Support
 
-Simulated Flow — <teufelsilvan@gmail.com> — <https://silvan.teufel-engineering.com>
+**Simulated Flow**
+
+- E-mail: <simulatedflow@gmail.com>
+- Documentation and issues: <https://github.com/SimulatedFlow/ue-plugin-TrackMark>
+
+When reporting a problem, the output of `TrackMark.Stats` plus your engine version and platform is
+usually enough to identify it.
