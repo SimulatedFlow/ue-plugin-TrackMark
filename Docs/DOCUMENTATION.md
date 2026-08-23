@@ -1023,7 +1023,7 @@ Instances sit far from their batch component's origin, so the component bounds n
 
 ## 20. Support
 
-**Simulated Flow**
+**Silvan Teufel**
 
 - E-mail: <teufelsilvan@gmail.com>
 - Documentation and issues: <https://github.com/SimulatedFlow/ue-plugin-TrackMark>
