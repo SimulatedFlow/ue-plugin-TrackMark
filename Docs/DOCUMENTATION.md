@@ -8,7 +8,7 @@ Footprints, paw prints, tyre marks and tank tracks — pooled, surface-aware, bu
 | **Plugin version** | 1.0.0 |
 | **Engine** | Unreal Engine **5.8** (`EngineVersion: "5.8.0"`) |
 | **Modules** | one runtime module, `TrackMark`, `LoadingPhase: PreDefault`. No editor module. |
-| **Platforms** | **Win64 — built and verified.** Mac and Linux are allow-listed in the `.uplugin` but have **not** been built or tested. |
+| **Platforms** | **Win64 — built and verified.** Mac and Linux are **not** in the `.uplugin`'s `PlatformAllowList` and have not been built or tested. |
 | **Dependencies** | `Core`, `CoreUObject`, `Engine`, `DeveloperSettings`, `RenderCore`, `PhysicsCore` — engine modules only. No UMG, no Niagara, no AIModule, no other Marketplace plugin. |
 | **Replication** | none. Marks are local and cosmetic by design. |
 | **C++ required** | no. The whole surface is exposed to Blueprint. |
@@ -75,11 +75,11 @@ version has been compiled, so no other version is claimed.
 | Platform | Status |
 |---|---|
 | **Win64** | **Built and verified.** Development Editor compiled, demo map run in Standalone PIE at 1920×1032, counters read off the live overlay. |
-| **Mac** | Allow-listed in the `.uplugin`. **Not built, not tested.** |
-| **Linux** | Allow-listed in the `.uplugin`. **Not built, not tested.** |
+| **Mac** | Not in the `PlatformAllowList`. **Not built, not tested.** |
+| **Linux** | Not in the `PlatformAllowList`. **Not built, not tested.** |
 | Consoles / mobile / VR | **Not allow-listed.** Not claimed, not supported. |
 
-The `PlatformAllowList` on the single module reads `["Win64", "Mac", "Linux"]`. There is nothing
+The `PlatformAllowList` on the single module reads `["Win64"]`. There is nothing
 platform-specific in the code — no intrinsics, no platform headers, no `#if PLATFORM_WINDOWS` — so Mac
 and Linux are expected to build cleanly. "Expected" is not "verified", and this table says so on
 purpose.

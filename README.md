@@ -72,8 +72,8 @@ the **Track Mark** notify on the foot-plant frames of your walk and run animatio
 
 ## Platforms
 
-Built and verified on **Win64** with Unreal Engine 5.8. **Mac** and **Linux** are allow-listed in the
-`.uplugin` but have not been built or tested.
+Built and verified on **Win64** with Unreal Engine 5.8. **Mac** and **Linux** are not in the
+`.uplugin`'s `PlatformAllowList` and have not been built or tested.
 
 ---
 
