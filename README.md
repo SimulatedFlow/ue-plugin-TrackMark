@@ -79,6 +79,8 @@ Built and verified on **Win64** with Unreal Engine 5.8. **Mac** and **Linux** ar
 
 ## Documentation
 
+Online, free and without an account: <https://wiki.teufel-engineering.com/en/TrackMark/documentation>
+
 Full documentation, including the master material's node graph and the custom data contract, is in
 [`Docs/DOCUMENTATION.md`](Docs/DOCUMENTATION.md).
 
